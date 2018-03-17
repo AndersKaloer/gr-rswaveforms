@@ -69,6 +69,7 @@ namespace gr {
         d_filename(filename),
         d_sample_rate(sample_rate)
     {
+      GR_LOG_INFO(d_logger, "constructor()");
     }
 
     /*
@@ -81,6 +82,7 @@ namespace gr {
 
     void
     smu_waveform_sink_impl::write_file() {
+      GR_LOG_INFO(d_logger, "write_file()");
       int fd;
       FILE *fp;
       if((fd = open(d_filename,
@@ -166,6 +168,7 @@ namespace gr {
 
       // Buffer
       d_buf.insert(d_buf.begin(), &in[0], &in[noutput_items]);
+      GR_LOG_INFO(d_logger, boost::format("work() %d") % noutput_items);
       
       // Tell runtime system how many output items we produced.
       return noutput_items;
