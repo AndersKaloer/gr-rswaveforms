@@ -1,0 +1,30 @@
+INCLUDE(FindPkgConfig)
+PKG_CHECK_MODULES(PC_RSWAVEFORMS rswaveforms)
+
+FIND_PATH(
+    RSWAVEFORMS_INCLUDE_DIRS
+    NAMES rswaveforms/api.h
+    HINTS $ENV{RSWAVEFORMS_DIR}/include
+        ${PC_RSWAVEFORMS_INCLUDEDIR}
+    PATHS ${CMAKE_INSTALL_PREFIX}/include
+          /usr/local/include
+          /usr/include
+)
+
+FIND_LIBRARY(
+    RSWAVEFORMS_LIBRARIES
+    NAMES gnuradio-rswaveforms
+    HINTS $ENV{RSWAVEFORMS_DIR}/lib
+        ${PC_RSWAVEFORMS_LIBDIR}
+    PATHS ${CMAKE_INSTALL_PREFIX}/lib
+          ${CMAKE_INSTALL_PREFIX}/lib64
+          /usr/local/lib
+          /usr/local/lib64
+          /usr/lib
+          /usr/lib64
+)
+
+INCLUDE(FindPackageHandleStandardArgs)
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(RSWAVEFORMS DEFAULT_MSG RSWAVEFORMS_LIBRARIES RSWAVEFORMS_INCLUDE_DIRS)
+MARK_AS_ADVANCED(RSWAVEFORMS_LIBRARIES RSWAVEFORMS_INCLUDE_DIRS)
+

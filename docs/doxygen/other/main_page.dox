@@ -1,0 +1,10 @@
+/*! \mainpage
+
+Welcome to the GNU Radio RSWAVEFORMS Block
+
+This is the intro page for the Doxygen manual generated for the RSWAVEFORMS
+block (docs/doxygen/other/main_page.dox). Edit it to add more detailed
+documentation about the new GNU Radio modules contained in this
+project.
+
+*/
