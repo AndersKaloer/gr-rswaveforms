@@ -141,8 +141,8 @@ namespace gr {
       
       for(int i = 0; i < N; i++) {
         // Use the WAV function which takes care of endianess
-	gr::blocks::wav_write_sample(fp, out_i[i], 2);
-	gr::blocks::wav_write_sample(fp, out_q[i], 2);
+        gr::blocks::wav_write_sample(fp, out_i[i], 2);
+        gr::blocks::wav_write_sample(fp, out_q[i], 2);
       }
       fprintf(fp, "}");
       
