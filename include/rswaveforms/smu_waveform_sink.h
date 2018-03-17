@@ -46,7 +46,7 @@ namespace gr {
        * class. rswaveforms::smu_waveform_sink::make is the public interface for
        * creating new instances.
        */
-      static sptr make(const char *filename, unsigned int sample_rate, const char *comment);
+      static sptr make(const char *filename, unsigned int sample_rate);
     };
 
   } // namespace rswaveforms

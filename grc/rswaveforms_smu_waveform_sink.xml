@@ -4,7 +4,7 @@
   <key>rswaveforms_smu_waveform_sink</key>
   <category>[rswaveforms]</category>
   <import>import rswaveforms</import>
-  <make>rswaveforms.smu_waveform_sink($*filename, $sample_rate, $*comment)</make>
+  <make>rswaveforms.smu_waveform_sink($*filename, $sample_rate)</make>
   <!-- Make one 'param' node for every Parameter you want settable from the GUI.
        Sub-nodes:
        * name

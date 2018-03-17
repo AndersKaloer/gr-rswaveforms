@@ -22,6 +22,7 @@
 #define INCLUDED_RSWAVEFORMS_SMU_WAVEFORM_SINK_IMPL_H
 
 #include <rswaveforms/smu_waveform_sink.h>
+#include <cstdint>
 
 namespace gr {
   namespace rswaveforms {
@@ -29,11 +30,15 @@ namespace gr {
     class smu_waveform_sink_impl : public smu_waveform_sink
     {
      private:
-      // Nothing to declare in this block.
+      const char *d_filename;
+      unsigned int d_sample_rate;
+      std::vector<gr_complex> d_buf;
 
      public:
-      smu_waveform_sink_impl(const char *filename, unsigned int sample_rate, const char *comment);
+      smu_waveform_sink_impl(const char *filename, unsigned int sample_rate);
       ~smu_waveform_sink_impl();
+
+      void write_file();
 
       // Where all the action really happens
       int work(int noutput_items,
