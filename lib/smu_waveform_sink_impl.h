@@ -30,15 +30,29 @@ namespace gr {
     class smu_waveform_sink_impl : public smu_waveform_sink
     {
      private:
-      const char *d_filename;
+      FILE *d_fp;
+      unsigned int d_f_level_offs_field_width;
+      unsigned int d_f_level_offs_field_prec;
+      unsigned int d_f_samples_field_width;
+      unsigned int d_f_waveform_field_width;
+      unsigned int d_f_level_offs_pos;
+      unsigned int d_f_samples_pos;
+      unsigned int d_f_waveform_pos;
+      float d_peak_power_dBfs;
+      float d_acc_power;
+      unsigned long d_num_samples;
       unsigned int d_sample_rate;
-      std::vector<gr_complex> d_buf;
+
+    protected:
+      void open_file(const char *filename);
+      void write_header();
+      void update_header(float rms, float peak, int num_samples);
+      void write_samples(const gr_complex *data, int len);
+      void close_file();
 
      public:
       smu_waveform_sink_impl(const char *filename, unsigned int sample_rate);
       ~smu_waveform_sink_impl();
-
-      void write_file();
 
       // Where all the action really happens
       int work(int noutput_items,
