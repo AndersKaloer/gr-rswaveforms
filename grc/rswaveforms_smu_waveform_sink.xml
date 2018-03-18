@@ -18,6 +18,7 @@
   <param>
     <name>Sample Rate</name>
     <key>sample_rate</key>
+    <value>samp_rate</value>
     <type>int</type>
   </param>
 
