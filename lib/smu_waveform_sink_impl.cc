@@ -151,7 +151,7 @@ namespace gr {
               d_f_samples_field_width, 0);
       fprintf(d_fp, "{WAVEFORM-");
       d_f_waveform_pos = ftell(d_fp);
-      fprintf(d_fp, "%0*d: #",
+      fprintf(d_fp, "%0*d: #}",
               d_f_waveform_field_width, 0);
     }
 
