@@ -66,22 +66,7 @@ namespace gr {
     smu_waveform_sink_impl::smu_waveform_sink_impl(const char *filename, unsigned int sample_rate)
       : gr::sync_block("smu_waveform_sink",
                        gr::io_signature::make(1, 1, sizeof(gr_complex)),
-                       gr::io_signature::make(0, 0, 0)),
-        d_fp(0),
-        d_sample_rate(sample_rate),
-        d_f_level_offs_field_width(8),
-        d_f_level_offs_field_prec(6),
-        d_f_samples_field_width(
-                (unsigned int)std::ceil(std::log10(ULONG_MAX))),
-        d_f_waveform_field_width(
-                (unsigned int)std::ceil(std::log10(ULONG_MAX))),
-        d_f_level_offs_pos(0),
-        d_f_samples_pos(0),
-        d_f_waveform_pos(0),
-        d_peak_power_dBfs(0.0),
-        d_acc_power(0.0),
-        d_num_samples(0),
-        d_alloc_buf_size(0)
+                       gr::io_signature::make(0, 0, 0))
     {
       GR_LOG_DEBUG(d_logger, "constructor()");
 

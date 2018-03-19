@@ -24,30 +24,38 @@
 #include <rswaveforms/smu_waveform_sink.h>
 #include <cstdint>
 
+
+// Maximum length of printed unsigned long
+#if ULONG_MAX <= 4294967295UL
+#define ULONG_MAX_LEN 10
+#elif ULONG_MAX <= 18446744073709551615ULL
+#define ULONG_MAX_LEN 20
+#endif
+
 namespace gr {
   namespace rswaveforms {
 
     class smu_waveform_sink_impl : public smu_waveform_sink
     {
      private:
-      FILE *d_fp;
-      unsigned int d_f_level_offs_field_width;
-      unsigned int d_f_level_offs_field_prec;
-      unsigned int d_f_samples_field_width;
-      unsigned int d_f_waveform_field_width;
-      unsigned int d_f_level_offs_pos;
-      unsigned int d_f_samples_pos;
-      unsigned int d_f_waveform_pos;
-      float d_peak_power_dBfs;
-      float d_acc_power;
-      unsigned long d_num_samples;
-      unsigned int d_sample_rate;
-      float *d_float_buf;
-      uint16_t *d_uint16_buf;
-      float *d_float_arr_buf;
-      int16_t *d_i_buf;
-      int16_t *d_q_buf;
-      int d_alloc_buf_size;
+      FILE *d_fp = NULL;
+      unsigned int d_f_level_offs_field_width = 8;
+      unsigned int d_f_level_offs_field_prec = 6;
+      unsigned int d_f_samples_field_width = ULONG_MAX_LEN;
+      unsigned int d_f_waveform_field_width = ULONG_MAX_LEN;
+      unsigned int d_f_level_offs_pos = 0;
+      unsigned int d_f_samples_pos = 0;
+      unsigned int d_f_waveform_pos = 0;
+      float d_peak_power_dBfs = 0.0f;
+      float d_acc_power = 0.0f;
+      unsigned long d_num_samples = 0.0;
+      unsigned int d_sample_rate = 0.0;
+      float *d_float_buf = NULL;
+      uint16_t *d_uint16_buf = NULL;
+      float *d_float_arr_buf = NULL;
+      int16_t *d_i_buf = NULL;
+      int16_t *d_q_buf = NULL;
+      int d_alloc_buf_size = NULL;
 
     protected:
       void open_file(const char *filename);
