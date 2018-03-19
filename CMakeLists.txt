@@ -96,8 +96,10 @@ endif()
 # Install directories
 ########################################################################
 include(GrPlatform) #define LIB_SUFFIX
-include(GrMiscUtils)
-GR_LOGGING()
+
+#include(GrMiscUtils)
+#GR_LOGGING()
+
 set(GR_RUNTIME_DIR      bin)
 set(GR_LIBRARY_DIR      lib${LIB_SUFFIX})
 set(GR_INCLUDE_DIR      include/rswaveforms)
