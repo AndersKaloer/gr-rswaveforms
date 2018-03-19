@@ -12,3 +12,6 @@ make
 sudo make install
 sudo ldconfig
 ```
+
+You must have `LD_LIBRARY_PATH` set to include the directory under which the
+module is installed (in many cases `/usr/local/lib`).
