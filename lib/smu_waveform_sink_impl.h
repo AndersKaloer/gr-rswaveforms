@@ -55,7 +55,7 @@ namespace gr {
       float *d_float_arr_buf = NULL;
       int16_t *d_i_buf = NULL;
       int16_t *d_q_buf = NULL;
-      int d_alloc_buf_size = NULL;
+      int d_alloc_buf_size = 0;
 
     protected:
       void open_file(const char *filename);
