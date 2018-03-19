@@ -80,9 +80,15 @@ namespace gr {
         d_f_waveform_pos(0),
         d_peak_power_dBfs(0.0),
         d_acc_power(0.0),
-        d_num_samples(0)
+        d_num_samples(0),
+        d_alloc_buf_size(0)
     {
       GR_LOG_DEBUG(d_logger, "constructor()");
+
+      // Initialize non-array buffers
+      unsigned int alignment = volk_get_alignment();
+      d_float_buf = (float*)volk_malloc(sizeof(float), alignment);
+      d_uint16_buf = (uint16_t*)volk_malloc(sizeof(uint16_t), alignment);
       
       open_file(filename);
     }
@@ -93,6 +99,11 @@ namespace gr {
     smu_waveform_sink_impl::~smu_waveform_sink_impl()
     {
       close_file();
+      volk_free(d_float_arr_buf);
+      volk_free(d_float_buf);
+      volk_free(d_uint16_buf);
+      volk_free(d_i_buf);
+      volk_free(d_q_buf);
     }
 
     int
@@ -174,27 +185,34 @@ namespace gr {
     void
     smu_waveform_sink_impl::write_samples(const gr_complex *data, int len) {
       GR_LOG_DEBUG(d_logger, "write_samples()");
-      
-      unsigned int alignment = volk_get_alignment();
-      float *float_arr_buf = (float*)volk_malloc(sizeof(float)*len, alignment);
-      float *float_buf = (float*)volk_malloc(sizeof(float), alignment);
-      uint16_t *uint16_buf = (uint16_t*)volk_malloc(sizeof(uint16_t), alignment);
-      int16_t *i_buf = (int16_t*)volk_malloc(sizeof(int16_t)*len, alignment);
-      int16_t *q_buf = (int16_t*)volk_malloc(sizeof(int16_t)*len, alignment);
+
+      if(len > d_alloc_buf_size) {
+        // Re-allocate buffers
+        unsigned int alignment = volk_get_alignment();
+        
+        volk_free(d_float_arr_buf);
+        volk_free(d_i_buf);
+        volk_free(d_q_buf);
+        
+        d_alloc_buf_size = len;
+        d_float_arr_buf = (float*)volk_malloc(sizeof(float)*len, alignment);        
+        d_i_buf = (int16_t*)volk_malloc(sizeof(int16_t)*len, alignment);
+        d_q_buf = (int16_t*)volk_malloc(sizeof(int16_t)*len, alignment);
+      }
       
       // Quantization
-      volk_32fc_deinterleave_real_32f(float_arr_buf, data, len);
-      volk_32f_s32f_convert_16i(i_buf, float_arr_buf, 32768, len);
-      volk_32fc_deinterleave_imag_32f(float_arr_buf, data, len);
-      volk_32f_s32f_convert_16i(q_buf, float_arr_buf, 32768, len);
+      volk_32fc_deinterleave_real_32f(d_float_arr_buf, data, len);
+      volk_32f_s32f_convert_16i(d_i_buf, d_float_arr_buf, 32768, len);
+      volk_32fc_deinterleave_imag_32f(d_float_arr_buf, data, len);
+      volk_32f_s32f_convert_16i(d_q_buf, d_float_arr_buf, 32768, len);
 
       // Write to file
       // We need to overwrite the last '}'
       fseek(d_fp, -1, SEEK_END);
       for(int i = 0; i < len; i++) {
         // Use the WAV function which takes care of endianess
-        gr::blocks::wav_write_sample(d_fp, i_buf[i], 2);
-        gr::blocks::wav_write_sample(d_fp, q_buf[i], 2);
+        gr::blocks::wav_write_sample(d_fp, d_i_buf[i], 2);
+        gr::blocks::wav_write_sample(d_fp, d_q_buf[i], 2);
       }
       fprintf(d_fp, "}");
 
@@ -203,16 +221,16 @@ namespace gr {
       d_num_samples = d_num_samples + len;
 
       // Calculate new peak power
-      volk_32fc_magnitude_squared_32f(float_arr_buf, data, len);
-      volk_32f_index_max_16u(uint16_buf, float_arr_buf, len);
-      float peak_power_dBfs = -10.0*std::log10(float_arr_buf[*uint16_buf]);
+      volk_32fc_magnitude_squared_32f(d_float_arr_buf, data, len);
+      volk_32f_index_max_16u(d_uint16_buf, d_float_arr_buf, len);
+      float peak_power_dBfs = -10.0*std::log10(d_float_arr_buf[*d_uint16_buf]);
       if(peak_power_dBfs > d_peak_power_dBfs) {
         d_peak_power_dBfs = peak_power_dBfs;
       }
 
       // Update RMS
-      volk_32f_accumulator_s32f(float_buf, float_arr_buf, len);
-      d_acc_power = d_acc_power + (*float_buf);
+      volk_32f_accumulator_s32f(d_float_buf, d_float_arr_buf, len);
+      d_acc_power = d_acc_power + (*d_float_buf);
       float rms_dBfs = -10.0*std::log10(d_acc_power/d_num_samples);
       
       // Update header
@@ -220,12 +238,6 @@ namespace gr {
 
       // Flush
       fflush(d_fp);
-
-      volk_free(float_arr_buf);
-      volk_free(float_buf);
-      volk_free(uint16_buf);
-      volk_free(i_buf);
-      volk_free(q_buf);
     }
 
     void

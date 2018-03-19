@@ -42,6 +42,12 @@ namespace gr {
       float d_acc_power;
       unsigned long d_num_samples;
       unsigned int d_sample_rate;
+      float *d_float_buf;
+      uint16_t *d_uint16_buf;
+      float *d_float_arr_buf;
+      int16_t *d_i_buf;
+      int16_t *d_q_buf;
+      int d_alloc_buf_size;
 
     protected:
       void open_file(const char *filename);
