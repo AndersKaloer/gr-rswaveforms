@@ -27,6 +27,7 @@
 #include "smu_waveform_sink_impl.h"
 #include <cstdint>
 #include <ctime>
+#include <climits>
 #include <fcntl.h>
 #include <volk/volk.h>
 #include <gnuradio/math.h>
@@ -70,8 +71,10 @@ namespace gr {
         d_sample_rate(sample_rate),
         d_f_level_offs_field_width(8),
         d_f_level_offs_field_prec(6),
-        d_f_samples_field_width(8),
-        d_f_waveform_field_width(8),
+        d_f_samples_field_width(
+                (unsigned int)std::ceil(std::log10(ULONG_MAX))),
+        d_f_waveform_field_width(
+                (unsigned int)std::ceil(std::log10(ULONG_MAX))),
         d_f_level_offs_pos(0),
         d_f_samples_pos(0),
         d_f_waveform_pos(0),
