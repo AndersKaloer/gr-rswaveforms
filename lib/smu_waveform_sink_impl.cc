@@ -84,11 +84,21 @@ namespace gr {
     smu_waveform_sink_impl::~smu_waveform_sink_impl()
     {
       close_file();
-      volk_free(d_float_arr_buf);
-      volk_free(d_float_buf);
-      volk_free(d_uint16_buf);
-      volk_free(d_i_buf);
-      volk_free(d_q_buf);
+      if(d_float_arr_buf != NULL) {
+        volk_free(d_float_arr_buf);
+      }
+      if(d_float_buf != NULL) {
+        volk_free(d_float_buf);
+      }
+      if(d_uint16_buf != NULL) {
+        volk_free(d_uint16_buf);
+      }
+      if(d_i_buf != NULL) {
+        volk_free(d_i_buf);
+      }
+      if(d_q_buf != NULL) {
+        volk_free(d_q_buf);
+      }
     }
 
     int
@@ -174,10 +184,16 @@ namespace gr {
       if(len > d_alloc_buf_size) {
         // Re-allocate buffers
         unsigned int alignment = volk_get_alignment();
-        
-        volk_free(d_float_arr_buf);
-        volk_free(d_i_buf);
-        volk_free(d_q_buf);
+
+        if(d_float_arr_buf != NULL) {
+          volk_free(d_float_arr_buf);
+        }
+        if(d_i_buf != NULL) {
+          volk_free(d_i_buf);
+        }
+        if(d_q_buf != NULL) {
+          volk_free(d_q_buf);
+        }
         
         d_alloc_buf_size = len;
         d_float_arr_buf = (float*)volk_malloc(sizeof(float)*len, alignment);        
