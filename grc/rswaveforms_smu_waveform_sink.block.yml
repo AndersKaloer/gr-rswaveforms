@@ -1,0 +1,24 @@
+id: rswaveforms_smu_waveform_sink
+label: SMU Waveform Sink
+category: '[RS Waveforms]'
+
+templates:
+  imports: from gnuradio import rswaveforms
+  make: rswaveforms.smu_waveform_sink(${filename}, ${samp_rate})
+
+parameters:
+- id: filename
+  label: Filename
+  dtype: string
+  default: gr_waveform.wv
+- id: samp_rate
+  label: Sample Rate
+  dtype: int
+  default: samp_rate
+
+inputs:
+- label: in
+  domain: stream
+  dtype: complex
+
+file_format: 1

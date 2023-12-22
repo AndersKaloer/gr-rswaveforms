@@ -1,36 +1,20 @@
 /* -*- c++ -*- */
-/* 
- * Copyright 2018 Anders Kalør <anders@kaloer.com>.
- * 
- * This is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this software; see the file COPYING.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street,
- * Boston, MA 02110-1301, USA.
+/*
+ * Copyright 2023 gr-rswaveforms author.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
+#include "smu_waveform_sink_impl.h"
 #include <gnuradio/io_signature.h>
 #include <gnuradio/blocks/wavfile.h>
-#include "smu_waveform_sink_impl.h"
 #include <cstdint>
 #include <ctime>
 #include <climits>
 #include <fcntl.h>
 #include <volk/volk.h>
 #include <gnuradio/math.h>
+
 
 // The following is borrowed from file_sink_base.cc
 // win32 (mingw/msvc) specific
@@ -50,23 +34,51 @@
 #define OUR_O_LARGEFILE
 #endif
 
+static inline uint16_t __gri_wav_bs16(uint16_t x) { return (x >> 8) | (x << 8); }
+
+static inline uint32_t __gri_wav_bs32(uint32_t x)
+{
+    return (uint32_t(__gri_wav_bs16(uint16_t(x & 0xfffful))) << 16) |
+           (__gri_wav_bs16(uint16_t(x >> 16)));
+}
+
+/*
+#define htowl(x) __gri_wav_bs32(x)
+#define wtohl(x) __gri_wav_bs32(x)
+#define htows(x) __gri_wav_bs16(x)
+#define wtohs(x) __gri_wav_bs16(x)
+*/
+
+#define htowl(x) uint32_t(x)
+#define wtohl(x) uint32_t(x)
+#define htows(x) uint16_t(x)
+#define wtohs(x) uint16_t(x)
+
+// WAV files are always little-endian, so we need some byte switching macros
+static inline uint32_t host_to_wav(uint32_t x) { return htowl(x); }
+static inline uint16_t host_to_wav(uint16_t x) { return htows(x); }
+static inline int16_t host_to_wav(int16_t x) { return htows(x); }
+static inline uint32_t wav_to_host(uint32_t x) { return wtohl(x); }
+static inline uint16_t wav_to_host(uint16_t x) { return wtohs(x); }
+static inline int16_t wav_to_host(int16_t x) { return wtohs(x); }
+
 namespace gr {
-  namespace rswaveforms {
+namespace rswaveforms {
 
-    smu_waveform_sink::sptr
-    smu_waveform_sink::make(const char *filename, unsigned int sample_rate)
-    {
-      return gnuradio::get_initial_sptr
-        (new smu_waveform_sink_impl(filename, sample_rate));
-    }
+using input_type = gr_complex;
+smu_waveform_sink::sptr smu_waveform_sink::make(const char *filename, unsigned int sample_rate) {
+  return gnuradio::make_block_sptr<smu_waveform_sink_impl>(filename, sample_rate);
+}
 
-    /*
-     * The private constructor
-     */
-    smu_waveform_sink_impl::smu_waveform_sink_impl(const char *filename, unsigned int sample_rate)
-      : gr::sync_block("smu_waveform_sink",
-                       gr::io_signature::make(1, 1, sizeof(gr_complex)),
-                       gr::io_signature::make(0, 0, 0))
+/*
+ * The private constructor
+ */
+smu_waveform_sink_impl::smu_waveform_sink_impl(const char *filename, unsigned int sample_rate)
+    : gr::sync_block("smu_waveform_sink",
+                     gr::io_signature::make(1 /* min inputs */,
+                                            1 /* max inputs */,
+                                            sizeof(input_type)),
+                     gr::io_signature::make(0, 0, 0))
     {
       GR_LOG_DEBUG(d_logger, "constructor()");
 
@@ -74,16 +86,15 @@ namespace gr {
       unsigned int alignment = volk_get_alignment();
       d_float_buf = (float*)volk_malloc(sizeof(float), alignment);
       d_uint16_buf = (uint16_t*)volk_malloc(sizeof(uint16_t), alignment);
-      
+      d_sample_rate = sample_rate;
       open_file(filename);
     }
 
-    /*
-     * Our virtual destructor.
-     */
-    smu_waveform_sink_impl::~smu_waveform_sink_impl()
-    {
-      close_file();
+/*
+ * Our virtual destructor.
+ */
+smu_waveform_sink_impl::~smu_waveform_sink_impl() {
+     close_file();
       if(d_float_arr_buf != NULL) {
         volk_free(d_float_arr_buf);
       }
@@ -99,13 +110,11 @@ namespace gr {
       if(d_q_buf != NULL) {
         volk_free(d_q_buf);
       }
-    }
+}
 
-    int
-    smu_waveform_sink_impl::work(int noutput_items,
-        gr_vector_const_void_star &input_items,
-        gr_vector_void_star &output_items)
-    {
+int smu_waveform_sink_impl::work(int noutput_items,
+                                 gr_vector_const_void_star &input_items,
+                                 gr_vector_void_star &output_items) {
       const gr_complex *in = (const gr_complex*) input_items[0];
 
       GR_LOG_DEBUG(d_logger, boost::format("work() %d") % noutput_items);
@@ -114,8 +123,7 @@ namespace gr {
       
       // Tell runtime system how many output items we produced.
       return noutput_items;
-    }
-
+}
     void
     smu_waveform_sink_impl::open_file(const char *filename) {
       GR_LOG_DEBUG(d_logger, "open_file()");
@@ -212,8 +220,10 @@ namespace gr {
       fseek(d_fp, -1, SEEK_END);
       for(int i = 0; i < len; i++) {
         // Use the WAV function which takes care of endianess
-        gr::blocks::wav_write_sample(d_fp, d_i_buf[i], 2);
-        gr::blocks::wav_write_sample(d_fp, d_q_buf[i], 2);
+//        gr::blocks::wav_write_sample(d_fp, d_i_buf[i], 2);
+//        gr::blocks::wav_write_sample(d_fp, d_q_buf[i], 2);
+        wav_write_sample(d_fp, d_i_buf[i], 2);
+        wav_write_sample(d_fp, d_q_buf[i], 2);
       }
       fprintf(d_fp, "}");
 
@@ -246,7 +256,24 @@ namespace gr {
       GR_LOG_DEBUG(d_logger, "close_file()");
       fclose(d_fp);
     }
+    
+    void
+    smu_waveform_sink_impl::wav_write_sample(FILE* fp, short int sample, int bytes_per_sample)
+{
+    void* data_ptr;
+    unsigned char buf_8bit;
+    int16_t buf_16bit;
 
-  } /* namespace rswaveforms */
+    if (bytes_per_sample == 1) {
+        buf_8bit = (unsigned char)sample;
+        data_ptr = (void*)&buf_8bit;
+    } else {
+        buf_16bit = host_to_wav((int16_t)sample);
+        data_ptr = (void*)&buf_16bit;
+    }
+
+    fwrite(data_ptr, 1, bytes_per_sample, fp);
+}
+
+} /* namespace rswaveforms */
 } /* namespace gr */
-
