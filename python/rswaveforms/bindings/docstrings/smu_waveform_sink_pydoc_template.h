@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Free Software Foundation, Inc.
+ * Copyright 2024 Free Software Foundation, Inc.
  *
  * This file is part of GNU Radio
  *
@@ -14,6 +14,8 @@
   and will be overwritten during the build process
  */
 
-static const char *__doc_gr_rswaveforms_smu_waveform_sink = R"doc()doc";
 
-static const char *__doc_gr_rswaveforms_smu_waveform_sink_make = R"doc()doc";
+static const char* __doc_gr_rswaveforms_smu_waveform_sink = R"doc()doc";
+
+
+static const char* __doc_gr_rswaveforms_smu_waveform_sink_make = R"doc()doc";

@@ -7,15 +7,14 @@
  */
 
 #include "smu_waveform_sink_impl.h"
-#include <gnuradio/io_signature.h>
 #include <gnuradio/blocks/wavfile.h>
-#include <cstdint>
-#include <ctime>
-#include <climits>
+#include <gnuradio/io_signature.h>
+#include <gnuradio/math.h>
 #include <fcntl.h>
 #include <volk/volk.h>
-#include <gnuradio/math.h>
-
+#include <climits>
+#include <cstdint>
+#include <ctime>
 
 // The following is borrowed from file_sink_base.cc
 // win32 (mingw/msvc) specific
@@ -67,199 +66,216 @@ namespace gr {
 namespace rswaveforms {
 
 using input_type = gr_complex;
-smu_waveform_sink::sptr smu_waveform_sink::make(const char *filename, unsigned int sample_rate) {
-  return gnuradio::make_block_sptr<smu_waveform_sink_impl>(filename, sample_rate);
+smu_waveform_sink::sptr smu_waveform_sink::make(const char* filename,
+                                                unsigned int sample_rate)
+{
+    return gnuradio::make_block_sptr<smu_waveform_sink_impl>(filename, sample_rate);
 }
 
 /*
  * The private constructor
  */
-smu_waveform_sink_impl::smu_waveform_sink_impl(const char *filename, unsigned int sample_rate)
+smu_waveform_sink_impl::smu_waveform_sink_impl(const char* filename,
+                                               unsigned int sample_rate)
     : gr::sync_block("smu_waveform_sink",
-                     gr::io_signature::make(1 /* min inputs */,
-                                            1 /* max inputs */,
-                                            sizeof(input_type)),
+                     gr::io_signature::make(
+                         1 /* min inputs */, 1 /* max inputs */, sizeof(input_type)),
                      gr::io_signature::make(0, 0, 0))
-    {
-      GR_LOG_DEBUG(d_logger, "constructor()");
+{
+    GR_LOG_DEBUG(d_logger, "constructor()");
 
-      // Initialize non-array buffers
-      unsigned int alignment = volk_get_alignment();
-      d_float_buf = (float*)volk_malloc(sizeof(float), alignment);
-      d_uint16_buf = (uint16_t*)volk_malloc(sizeof(uint16_t), alignment);
-      d_sample_rate = sample_rate;
-      open_file(filename);
-    }
+    // Initialize non-array buffers
+    unsigned int alignment = volk_get_alignment();
+    d_float_buf = (float*)volk_malloc(sizeof(float), alignment);
+    d_uint16_buf = (uint16_t*)volk_malloc(sizeof(uint16_t), alignment);
+    d_sample_rate = sample_rate;
+    open_file(filename);
+}
 
 /*
  * Our virtual destructor.
  */
-smu_waveform_sink_impl::~smu_waveform_sink_impl() {
-     close_file();
-      if(d_float_arr_buf != NULL) {
+smu_waveform_sink_impl::~smu_waveform_sink_impl()
+{
+    close_file();
+    if (d_float_arr_buf != NULL) {
         volk_free(d_float_arr_buf);
-      }
-      if(d_float_buf != NULL) {
+    }
+    if (d_float_buf != NULL) {
         volk_free(d_float_buf);
-      }
-      if(d_uint16_buf != NULL) {
+    }
+    if (d_uint16_buf != NULL) {
         volk_free(d_uint16_buf);
-      }
-      if(d_i_buf != NULL) {
+    }
+    if (d_i_buf != NULL) {
         volk_free(d_i_buf);
-      }
-      if(d_q_buf != NULL) {
+    }
+    if (d_q_buf != NULL) {
         volk_free(d_q_buf);
-      }
+    }
 }
 
 int smu_waveform_sink_impl::work(int noutput_items,
-                                 gr_vector_const_void_star &input_items,
-                                 gr_vector_void_star &output_items) {
-      const gr_complex *in = (const gr_complex*) input_items[0];
+                                 gr_vector_const_void_star& input_items,
+                                 gr_vector_void_star& output_items)
+{
+    const gr_complex* in = (const gr_complex*)input_items[0];
 
-      GR_LOG_DEBUG(d_logger, boost::format("work() %d") % noutput_items);
-      // Write to file
-      write_samples(in, noutput_items);
-      
-      // Tell runtime system how many output items we produced.
-      return noutput_items;
+    GR_LOG_DEBUG(d_logger, boost::format("work() %d") % noutput_items);
+    // Write to file
+    write_samples(in, noutput_items);
+
+    // Tell runtime system how many output items we produced.
+    return noutput_items;
 }
-    void
-    smu_waveform_sink_impl::open_file(const char *filename) {
-      GR_LOG_DEBUG(d_logger, "open_file()");
-      int fd;
-      if((fd = open(filename,
-                    O_WRONLY|O_CREAT|O_TRUNC|OUR_O_LARGEFILE|OUR_O_BINARY,
-                    0664)) < 0) {
+void smu_waveform_sink_impl::open_file(const char* filename)
+{
+    GR_LOG_DEBUG(d_logger, "open_file()");
+    int fd;
+    if ((fd = open(filename,
+                   O_WRONLY | O_CREAT | O_TRUNC | OUR_O_LARGEFILE | OUR_O_BINARY,
+                   0664)) < 0) {
         perror(filename);
         return;
-      }
-      if((d_fp = fdopen(fd, "wb")) == NULL) {
+    }
+    if ((d_fp = fdopen(fd, "wb")) == NULL) {
         perror(filename);
         close(fd);
         return;
-      }
-
-      // Write header
-      write_header();
     }
 
-    void
-    smu_waveform_sink_impl::write_header() {
-      GR_LOG_DEBUG(d_logger, "write_header()");
-      // Write meta data
-      fprintf(d_fp, "{TYPE: SMU-WV,0}");
-      fprintf(d_fp, "{COMMENT: Generated by gr-rswaveforms}");
-      std::time_t now = std::time(0);
-      const std::tm *tm = std::localtime(&now);
-      fprintf(d_fp, "{DATE: %04d-%02d-%02d;%02d:%02d:%02d}",
-              tm->tm_year, tm->tm_mon, tm->tm_mday,
-              tm->tm_hour, tm->tm_min, tm->tm_sec);
-      fprintf(d_fp, "{CLOCK: %d}", d_sample_rate);
-      // We don't know this yet.
-      fprintf(d_fp, "{LEVEL OFFS: ");
-      d_f_level_offs_pos = ftell(d_fp);
-      fprintf(d_fp, "%+0*.*f,%+0*.*f}",
-              d_f_level_offs_field_width, d_f_level_offs_field_prec, 0.0f,
-              d_f_level_offs_field_width, d_f_level_offs_field_prec, 0.0f);
-      fprintf(d_fp, "{SAMPLES: ");
-      d_f_samples_pos = ftell(d_fp);
-      fprintf(d_fp, "%0*d}",
-              d_f_samples_field_width, 0);
-      fprintf(d_fp, "{WAVEFORM-");
-      d_f_waveform_pos = ftell(d_fp);
-      fprintf(d_fp, "%0*d: #}",
-              d_f_waveform_field_width, 0);
-    }
+    // Write header
+    write_header();
+}
 
-    void
-    smu_waveform_sink_impl::update_header(float rms, float peak, int num_samples) {
-      GR_LOG_DEBUG(d_logger, "update_header()");
-      fseek(d_fp, d_f_level_offs_pos, SEEK_SET);
-      fprintf(d_fp, "%+0*.*f,%+0*.*f",
-              d_f_level_offs_field_width, d_f_level_offs_field_prec, rms,
-              d_f_level_offs_field_width, d_f_level_offs_field_prec, peak);
-      fseek(d_fp, d_f_samples_pos, SEEK_SET);
-      fprintf(d_fp, "%0*d", d_f_samples_field_width, num_samples);
-      fseek(d_fp, d_f_waveform_pos, SEEK_SET);
-      fprintf(d_fp, "%0*d", d_f_waveform_field_width, num_samples*4+1);
-    }
+void smu_waveform_sink_impl::write_header()
+{
+    GR_LOG_DEBUG(d_logger, "write_header()");
+    // Write meta data
+    fprintf(d_fp, "{TYPE: SMU-WV,0}");
+    fprintf(d_fp, "{COMMENT: Generated by gr-rswaveforms}");
+    std::time_t now = std::time(0);
+    const std::tm* tm = std::localtime(&now);
+    fprintf(d_fp,
+            "{DATE: %04d-%02d-%02d;%02d:%02d:%02d}",
+            tm->tm_year,
+            tm->tm_mon,
+            tm->tm_mday,
+            tm->tm_hour,
+            tm->tm_min,
+            tm->tm_sec);
+    fprintf(d_fp, "{CLOCK: %d}", d_sample_rate);
+    // We don't know this yet.
+    fprintf(d_fp, "{LEVEL OFFS: ");
+    d_f_level_offs_pos = ftell(d_fp);
+    fprintf(d_fp,
+            "%+0*.*f,%+0*.*f}",
+            d_f_level_offs_field_width,
+            d_f_level_offs_field_prec,
+            0.0f,
+            d_f_level_offs_field_width,
+            d_f_level_offs_field_prec,
+            0.0f);
+    fprintf(d_fp, "{SAMPLES: ");
+    d_f_samples_pos = ftell(d_fp);
+    fprintf(d_fp, "%0*d}", d_f_samples_field_width, 0);
+    fprintf(d_fp, "{WAVEFORM-");
+    d_f_waveform_pos = ftell(d_fp);
+    fprintf(d_fp, "%0*d: #}", d_f_waveform_field_width, 0);
+}
 
-    void
-    smu_waveform_sink_impl::write_samples(const gr_complex *data, int len) {
-      GR_LOG_DEBUG(d_logger, "write_samples()");
+void smu_waveform_sink_impl::update_header(float rms, float peak, int num_samples)
+{
+    GR_LOG_DEBUG(d_logger, "update_header()");
+    fseek(d_fp, d_f_level_offs_pos, SEEK_SET);
+    fprintf(d_fp,
+            "%+0*.*f,%+0*.*f",
+            d_f_level_offs_field_width,
+            d_f_level_offs_field_prec,
+            rms,
+            d_f_level_offs_field_width,
+            d_f_level_offs_field_prec,
+            peak);
+    fseek(d_fp, d_f_samples_pos, SEEK_SET);
+    fprintf(d_fp, "%0*d", d_f_samples_field_width, num_samples);
+    fseek(d_fp, d_f_waveform_pos, SEEK_SET);
+    fprintf(d_fp, "%0*d", d_f_waveform_field_width, num_samples * 4 + 1);
+}
 
-      if(len > d_alloc_buf_size) {
+void smu_waveform_sink_impl::write_samples(const gr_complex* data, int len)
+{
+    GR_LOG_DEBUG(d_logger, "write_samples()");
+
+    if (len > d_alloc_buf_size) {
         // Re-allocate buffers
         unsigned int alignment = volk_get_alignment();
 
-        if(d_float_arr_buf != NULL) {
-          volk_free(d_float_arr_buf);
+        if (d_float_arr_buf != NULL) {
+            volk_free(d_float_arr_buf);
         }
-        if(d_i_buf != NULL) {
-          volk_free(d_i_buf);
+        if (d_i_buf != NULL) {
+            volk_free(d_i_buf);
         }
-        if(d_q_buf != NULL) {
-          volk_free(d_q_buf);
+        if (d_q_buf != NULL) {
+            volk_free(d_q_buf);
         }
-        
-        d_alloc_buf_size = len;
-        d_float_arr_buf = (float*)volk_malloc(sizeof(float)*len, alignment);        
-        d_i_buf = (int16_t*)volk_malloc(sizeof(int16_t)*len, alignment);
-        d_q_buf = (int16_t*)volk_malloc(sizeof(int16_t)*len, alignment);
-      }
-      
-      // Quantization
-      volk_32fc_deinterleave_real_32f(d_float_arr_buf, data, len);
-      volk_32f_s32f_convert_16i(d_i_buf, d_float_arr_buf, 32768, len);
-      volk_32fc_deinterleave_imag_32f(d_float_arr_buf, data, len);
-      volk_32f_s32f_convert_16i(d_q_buf, d_float_arr_buf, 32768, len);
 
-      // Write to file
-      // We need to overwrite the last '}'
-      fseek(d_fp, -1, SEEK_END);
-      for(int i = 0; i < len; i++) {
+        d_alloc_buf_size = len;
+        d_float_arr_buf = (float*)volk_malloc(sizeof(float) * len, alignment);
+        d_i_buf = (int16_t*)volk_malloc(sizeof(int16_t) * len, alignment);
+        d_q_buf = (int16_t*)volk_malloc(sizeof(int16_t) * len, alignment);
+    }
+
+    // Quantization
+    volk_32fc_deinterleave_real_32f(d_float_arr_buf, data, len);
+    volk_32f_s32f_convert_16i(d_i_buf, d_float_arr_buf, 32768, len);
+    volk_32fc_deinterleave_imag_32f(d_float_arr_buf, data, len);
+    volk_32f_s32f_convert_16i(d_q_buf, d_float_arr_buf, 32768, len);
+
+    // Write to file
+    // We need to overwrite the last '}'
+    fseek(d_fp, -1, SEEK_END);
+    for (int i = 0; i < len; i++) {
         // Use the WAV function which takes care of endianess
-//        gr::blocks::wav_write_sample(d_fp, d_i_buf[i], 2);
-//        gr::blocks::wav_write_sample(d_fp, d_q_buf[i], 2);
+        //        gr::blocks::wav_write_sample(d_fp, d_i_buf[i], 2);
+        //        gr::blocks::wav_write_sample(d_fp, d_q_buf[i], 2);
         wav_write_sample(d_fp, d_i_buf[i], 2);
         wav_write_sample(d_fp, d_q_buf[i], 2);
-      }
-      fprintf(d_fp, "}");
+    }
+    fprintf(d_fp, "}");
 
-      
-      // Calculate new header values
-      d_num_samples = d_num_samples + len;
+    // Calculate new header values
+    d_num_samples = d_num_samples + len;
 
-      // Calculate new peak power
-      volk_32fc_magnitude_squared_32f(d_float_arr_buf, data, len);
-      volk_32f_index_max_16u(d_uint16_buf, d_float_arr_buf, len);
-      float peak_power_dBfs = -10.0*std::log10(d_float_arr_buf[*d_uint16_buf]);
-      if(peak_power_dBfs > d_peak_power_dBfs) {
+    // Calculate new peak power
+    volk_32fc_magnitude_squared_32f(d_float_arr_buf, data, len);
+    volk_32f_index_max_16u(d_uint16_buf, d_float_arr_buf, len);
+    float peak_power_dBfs = -10.0 * std::log10(d_float_arr_buf[*d_uint16_buf]);
+    if (peak_power_dBfs > d_peak_power_dBfs) {
         d_peak_power_dBfs = peak_power_dBfs;
-      }
-
-      // Update RMS
-      volk_32f_accumulator_s32f(d_float_buf, d_float_arr_buf, len);
-      d_acc_power = d_acc_power + (*d_float_buf);
-      float rms_dBfs = -10.0*std::log10(d_acc_power/d_num_samples);
-      
-      // Update header
-      update_header(rms_dBfs, d_peak_power_dBfs, d_num_samples);
-
-      // Flush
-      fflush(d_fp);
     }
 
-    void
-    smu_waveform_sink_impl::close_file() {
-      GR_LOG_DEBUG(d_logger, "close_file()");
-      fclose(d_fp);
-    }
-    
-    void
-    smu_waveform_sink_impl::wav_write_sample(FILE* fp, short int sample, int bytes_per_sample)
+    // Update RMS
+    volk_32f_accumulator_s32f(d_float_buf, d_float_arr_buf, len);
+    d_acc_power = d_acc_power + (*d_float_buf);
+    float rms_dBfs = -10.0 * std::log10(d_acc_power / d_num_samples);
+
+    // Update header
+    update_header(rms_dBfs, d_peak_power_dBfs, d_num_samples);
+
+    // Flush
+    fflush(d_fp);
+}
+
+void smu_waveform_sink_impl::close_file()
+{
+    GR_LOG_DEBUG(d_logger, "close_file()");
+    fclose(d_fp);
+}
+
+void smu_waveform_sink_impl::wav_write_sample(FILE* fp,
+                                              short int sample,
+                                              int bytes_per_sample)
 {
     void* data_ptr;
     unsigned char buf_8bit;
