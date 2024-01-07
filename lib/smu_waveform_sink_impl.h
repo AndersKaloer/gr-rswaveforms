@@ -1,6 +1,7 @@
 /* -*- c++ -*- */
 /*
- * Copyright 2023 gr-rswaveforms author.
+ * Copyright 2018 Anders Kalør <anders@kaloer.com>.
+ * Copyright 2023 Derek Kozel <dkozel@bitstovolts.com>.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
